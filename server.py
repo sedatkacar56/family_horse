@@ -114,7 +114,7 @@ def simulate(D, entries, rnd):
     tie_top = sum(1 for t in totals if t == min(totals)) > 1
     horses = []
     for i, e in enumerate(entries):
-        horses.append(dict(name=e["name"], plan=e["plan"], ai=e["ai"], owner=e["owner"], color=e["color"], style=e["style"],
+        horses.append(dict(form=e.get("form", ""), name=e["name"], plan=e["plan"], ai=e["ai"], owner=e["owner"], color=e["color"], style=e["style"],
                            jockey=e["jockey"]["name"], speeds=e["speeds"][:D], jspeeds=e["jockey"]["speeds"][:D],
                            ranks=ranks[i], how=how[i], total=totals[i], position=pos[i]))
     horses.sort(key=lambda h: h["position"])
@@ -244,7 +244,8 @@ def api(path, d):
         rnd = random.Random(secrets.randbits(64))
         names = rnd.sample(AI_NAMES, min(room["ai"], len(AI_NAMES))) + ["AI %d" % (i + 1) for i in range(max(0, room["ai"] - len(AI_NAMES)))]
         entries = [dict(name=p["horse"]["name"], plan=p["plan"], ai=False, owner=p["name"], color=p["horse"]["color"], style=p["horse"]["style"],
-                        speeds=p["horse"]["speeds"], jockey=p["horse"]["jockey"]) for p in room["players"]]
+                        speeds=p["horse"]["speeds"], jockey=p["horse"]["jockey"],
+                        form=" ".join(str(x) for x in reversed(room.get("form", {}).get(p["horse"]["name"].lower(), [])[-8:]))) for p in room["players"]]
         used = {e["name"].lower() for e in entries}
         pool = [x for x in AI_NAMES if x.lower() not in used]
         names = rnd.sample(pool, min(room["ai"], len(pool))) + ["AI %d" % (i + 1) for i in range(max(0, room["ai"] - len(pool)))]
@@ -252,6 +253,10 @@ def api(path, d):
             h = make_horse(nm, rnd, HORSE_COLORS[(len(room["players"]) + k) % len(HORSE_COLORS)])
             entries.append(dict(name=nm, plan=ai_plan(room["distance"], rnd), ai=True, owner="AI", color=h["color"], style=h["style"], speeds=h["speeds"], jockey=h["jockey"]))
         room["result"] = simulate(room["distance"], entries, rnd)
+        fm = room.setdefault("form", {})
+        for hz in room["result"]["horses"]:
+            if not hz["ai"]:
+                fm.setdefault(hz["name"].lower(), []).append(hz["position"])
         room["phase"] = "done"
         return room_state(room, me["token"])
     if path == "/api/next":

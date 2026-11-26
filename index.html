@@ -61,6 +61,22 @@ sup.tb{font-size:10px;color:var(--acc2);font-weight:800}
 .vb button.on{outline:3px solid #ffd54a;background:#c0306d}
 #rkb{position:absolute;right:10px;bottom:10px;z-index:70;min-width:230px;max-width:72%;background:#7a4a24ee;border:3px solid #3b2410;border-radius:10px;color:#fff;font:13px Arial;overflow:hidden}
 #rkb div{padding:3px 9px;border-bottom:1px solid #0003}
+.vctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;margin:6px 0}.vctl input[type=range]{width:110px;vertical-align:middle}.vctl input[type=number]{width:72px;padding:4px 6px}
+.vb button.wide{width:auto;border-radius:18px;padding:0 12px;font-size:13px}
+#hud{position:absolute;right:10px;top:8px;z-index:66;width:150px;color:#fff;text-align:center;pointer-events:none}#skd{background:#000b;border-radius:8px;font:bold 15px Arial;padding:3px 8px;margin-bottom:4px}
+.hbar{height:8px;background:#0008;border-radius:5px;overflow:hidden;margin-top:3px;border:1px solid #fff5}.hbar div{height:100%;width:0;background:#e0a526}.hbar.w2 div{background:#3ecf8e}
+#fban{position:absolute;left:50%;top:120px;transform:translateX(-50%);z-index:66;pointer-events:none;color:#fff;text-align:center;opacity:0;text-shadow:0 2px 6px #000}#fban b{display:block;font:900 44px Arial;letter-spacing:2px}#fban small{font:700 16px Arial}
+#fban.show{animation:fbn 1.8s ease-out}@keyframes fbn{0%{opacity:0;transform:translateX(-50%) scale(.7)}12%{opacity:1;transform:translateX(-50%) scale(1.05)}70%{opacity:1}100%{opacity:0;transform:translateX(-50%) scale(1)}}
+#pans{position:absolute;right:10px;top:84px;z-index:72;display:flex;flex-direction:column;gap:6px;max-width:80%;max-height:62%;overflow:auto;align-items:flex-end}.pan{display:none;position:relative;background:#101830f2;color:#fff;border:1px solid #6a7ab0;border-radius:10px;font-size:12px;max-width:100%;flex:none}.pan.on{display:block}
+.pan .trh{padding:6px 10px;border-bottom:1px solid #fff3}.pan table{border-collapse:collapse;margin:4px 8px 8px}.pan td,.pan th{padding:2px 6px;text-align:center;color:#fff;border-bottom:1px solid #fff2}.pan td.nm{text-align:left;white-space:nowrap}
+.pan .hi{background:#5a4a12}.pan tr.g1 td{background:#6b5a1a}.pan tr.g2 td{background:#4a4f5a}.pan tr.g3 td{background:#5a3a22}.pan td.z0{color:#7dffb0;font-weight:700}
+.bd{display:inline-block;min-width:18px;height:18px;line-height:18px;border-radius:9px;text-align:center;color:#fff;font:700 11px Arial;padding:0 3px}
+#skc{display:none;position:absolute;left:10px;right:10px;top:90px;z-index:90;background:#f7f1dc;color:#222;border:3px solid #3b2410;border-radius:12px;padding:10px;max-height:78%;overflow:auto}
+#skc .hd{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px;margin-bottom:6px}#skc .go2{background:#c9302c;color:#fff;border:0;font-weight:800;padding:10px 18px;border-radius:8px}
+#skc table{border-collapse:collapse;width:100%}#skc td,#skc th{border-bottom:1px solid #0002;padding:4px 6px;text-align:left;color:#222}#skc .hwl{color:#555;font-size:11px}#skc tr.meR td{background:#ffe9a8}
+.podium{display:flex;gap:18px;justify-content:center;text-align:center;margin:10px 0}.podium img{height:70px}
+table.sum td,table.sum th{padding:4px 8px}
+th.cur{background:#ffe9a8}
 .mut{color:var(--mut);font-size:14px}
 </style>
 </head>
@@ -105,24 +121,48 @@ function submitPlan(){const p=curPlan();planDraft=p;act("/api/plan",{plan:p})}
 
 const FPS=50,BASE=51,RUNON=10,LAYERS=[90,70,90,280,47,31,120],TILE=2518;
 let V=null,vraf=0;
+const lsGet=(k,d)=>{try{return Object.assign({},d,JSON.parse(localStorage.getItem(k)||"{}"))}catch(e){return d}},lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let LAY=lsGet("frLay",{size:100,gap:null,names:true}),UI=lsGet("frUi",{rk:false,tr:false,z:false});
+const autoGap=n=>n<2?40:Math.max(9,Math.min(40,Math.floor(190/(n-1))));
+function lenTxt(L){if(L<.12)return "a nose";if(L<.2)return "a short head";if(L<.4)return "a neck";const q=Math.round(L*4)/4,w=Math.floor(q),fr=["","¼","½","¾"][Math.round((q-w)*4)];return (w||"")+fr+(q>1?" lengths":" length")}
+const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
 function lanes(R){const a=R.horses.slice();return a.sort((x,y)=>(x.ai-y.ai)||x.name.localeCompare(y.name))}
 function viewHtml(R){let y=0;const ls=LAYERS.map((hh,k)=>{const s=`<div class="layer" style="top:${y}px;height:${hh}px;background-image:url(assets/track/${k+1}.jpg)"></div>`;y+=hh;return s}).join("");
-  return `<div id="view">${ls}<div id="world"></div><div id="vinfo"></div>
-   <div class="vb"><button id="vpz" onclick="vPause()">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vSpeed(${q[0]})">${q[1]}</button>`).join("")}<button onclick="vReplay()" title="Replay">↻</button><button onclick="vSkip()" title="Skip to the finish">⏭</button></div>
-   <div id="rkb"></div></div>`}
-function startView(R,key){cancelAnimationFrame(vraf);const hs=lanes(R),n=hs.length,D=R.distance,sx=132,gap=n<2?40:Math.max(9,Math.min(40,Math.floor(190/(n-1)))),top=180+70*0.37;
+  return `<div class="vctl"><label>Horse size <input type="range" id="szr" min="50" max="220" value="${LAY.size}" oninput="setLay('size',this.value)"> <input type="number" id="szn" min="50" max="220" value="${LAY.size}" oninput="setLay('size',this.value)">%</label>
+   <label>Space between horses <input type="range" id="gpr" min="6" max="90" value="${LAY.gap??autoGap(R.horses.length)}" oninput="setLay('gap',this.value)"> <input type="number" id="gpn" min="6" max="90" value="${LAY.gap??autoGap(R.horses.length)}" oninput="setLay('gap',this.value)">px</label>
+   <label><input type="checkbox" ${LAY.names?"checked":""} onchange="LAY.names=this.checked;lsSet('frLay',LAY);vLayout()"> names</label></div>
+  <div id="view">${ls}<div id="world"></div><div id="vinfo"></div>
+   <div class="vb"><button id="vpz" onclick="vPause()">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vSpeed(${q[0]})">${q[1]}</button>`).join("")}<button onclick="vReplay()" title="Replay">↻</button><button onclick="vSkip()" title="Skip to the finish">⏭</button>
+     <button class="wide ${UI.rk?"on":""}" id="rkbtn" onclick="vToggle('rk')">🏁 Ranks</button><button class="wide ${UI.tr?"on":""}" id="trbtn" onclick="vToggle('tr')">📋 Trainings</button></div>
+   <div id="hud"><div id="skd">0.00 f</div><div class="hbar"><div id="skb"></div></div><div class="hbar w2"><div id="skb2"></div></div></div><div id="fban"></div>
+   <div id="pans"><div id="rkp" class="pan ${UI.rk?"on":""}"></div><div id="trp" class="pan ${UI.tr?"on":""}"></div></div>
+   <div id="rkb"></div><div id="skc"></div></div>`}
+function setLay(k,v){v=+v;if(!(v>0))return;if(k==="size"){LAY.size=Math.max(50,Math.min(220,v));$("#szr").value=LAY.size;if(document.activeElement!==$("#szn"))$("#szn").value=LAY.size}
+  else{LAY.gap=Math.max(6,Math.min(90,v));$("#gpr").value=LAY.gap;if(document.activeElement!==$("#gpn"))$("#gpn").value=LAY.gap}lsSet("frLay",LAY);vLayout()}
+function vLayout(){if(!V)return;const sz=LAY.size/100,w=112*sz,hh=70*sz,top=180+hh*.37,gap=LAY.gap??autoGap(V.n);
+  V.hs.forEach((_,i)=>{const L=$("#L"+i),im=L.firstChild;L.style.top=(top+i*gap)+"px";im.style.width=w+"px";im.style.height=hh+"px";im.style.top=(-hh*.37)+"px";
+    const N=$("#N"+i),lh=Math.max(10,Math.min(17,gap+1));N.style.top=(top+i*gap+hh*.12)+"px";N.style.lineHeight=lh+"px";N.style.fontSize=(lh-4)+"px";N.style.display=LAY.names?"":"none"});vRender()}
+function vToggle(k){UI[k]=!UI[k];lsSet("frUi",UI);$(k==="rk"?"#rkp":"#trp").classList.toggle("on",UI[k]);$(k==="rk"?"#rkbtn":"#trbtn").classList.toggle("on",UI[k]);if(V){V.rkKey=null;vPanels()}}
+function startView(R,key,replay){cancelAnimationFrame(vraf);const hs=lanes(R),n=hs.length,D=R.distance,sx=132;
   let h=`<div class="fline" style="left:${5000*D}px"></div><div class="sign" style="left:${5000*D+5}px;font-size:11px">END</div><div class="sign" style="left:${sx}px;font-size:11px">START</div>`;
   for(let f=1;f<D;f++)h+=`<div class="pole" style="left:${5000*f}px"></div><div class="sign" style="left:${5000*f}px">${f}f</div>`;
-  hs.forEach((hz,i)=>{h+=`<div class="vlane" id="L${i}" style="top:${top+i*gap}px;z-index:${i+1}"><img src="assets/Horse${i%12+1}.gif"></div>`});
-  hs.forEach((hz,i)=>{const lh=Math.max(10,Math.min(17,gap+1));h+=`<div class="nl" id="N${i}" style="background:${hz.color}ee;top:${top+i*gap+70*0.12}px;line-height:${lh}px;font-size:${lh-4}px"><b>${i+1}</b><i> ${esc(hz.name)}</i></div>`});
+  hs.forEach((hz,i)=>{h+=`<div class="vlane" id="L${i}" style="z-index:${i+1}"><img src="assets/Horse${i%12+1}.gif"></div>`});
+  hs.forEach((hz,i)=>{h+=`<div class="nl" id="N${i}" style="background:${hz.color}ee"><b>${i+1}</b><i> ${esc(hz.name)}</i></div>`});
   $("#world").innerHTML=h;$("#world").style.width=(5000*D+$("#view").clientWidth)+"px";
-  V={key,hs,n,D,sx,speed:V&&V.key===key?V.speed:1,paused:false,pos:Array(n).fill(0),fin:Array(n).fill(null),frame:0,acc:0,last:performance.now(),done:false,lref:null,allFin:null,shown:-1,rk:"",
+  const wait=!replay;
+  V={key,hs,n,D,sx,speed:V&&V.key===key?V.speed:1,paused:wait,waiting:wait,pos:Array(n).fill(0),fin:Array(n).fill(null),frame:0,acc:0,last:performance.now(),done:false,lref:null,allFin:null,shown:-1,rk:"",rkKey:null,fnum:0,
      finishPos:D*FPS*(BASE-1)-1450,tk:hs.map(z=>z.position*1e-6)};
-  vSpeed(V.speed);vRender();paintTable();vraf=requestAnimationFrame(vLoop)}
+  $("#trp").innerHTML=`<div class="trh"><b>Everyone's training</b></div><table><tr><th></th>${[...Array(D)].map((_,f)=>`<th data-f="${f}">${f+1}</th>`).join("")}<th>Σ</th></tr>${hs.map((z,i)=>`<tr><td class="nm"><span class="bd" style="background:${z.color}">${i+1}</span> ${esc(z.name)}</td>${z.plan.map((v,f)=>`<td data-f="${f}">${v||"·"}</td>`).join("")}<td><b>${z.plan.reduce((x,y)=>x+y,0)}</b></td></tr>`).join("")}</table>`;
+  $("#skc").innerHTML=wait?cardHtml(R,hs):"";$("#skc").style.display=wait?"block":"none";
+  vSpeed(V.speed);vLayout();paintTable();vPanels();$("#vpz").textContent=V.paused?"▶":"⏸";vraf=requestAnimationFrame(vLoop)}
+function cardHtml(R,hs){const D=R.distance,me=S&&S.you;
+  return `<div class="hd"><div><b>Round ${S.round}</b> · Race over ${D}f</div><div>${hs.length} runners · lowest rank points win</div><button class="go2" onclick="vGo()">START RACE</button></div>
+  <table><tr><th>NO.<br>FORM</th><th></th><th>Horse</th><th>Jockey<br>Owner</th></tr>${hs.map((z,i)=>`<tr${!z.ai&&z.owner===me?' class="meR"':""}><td><b>${i+1}</b><br>${esc(z.form||"–")}</td><td><span class="bd" style="background:${z.color}">${i+1}</span></td><td><b>${esc(z.name)}</b> (${avg(z.speeds)})<div class="hwl">${esc(z.style)}${!z.ai&&z.owner===me?" · <b>YOUR HORSE</b>":""}</div></td><td style="font-size:12px">${esc(z.jockey)} (${avg(z.jspeeds)})<div class="hwl">${z.ai?"AI":"Player "+esc(z.owner)}</div></td></tr>`).join("")}</table>`}
+function vGo(){if(!V)return;V.waiting=false;V.paused=false;V.last=performance.now();$("#skc").style.display="none";$("#vpz").textContent="⏸"}
 function vSpeed(s){if(!V)return;V.speed=s;document.querySelectorAll(".vb button[data-sp]").forEach(b=>b.classList.toggle("on",+b.dataset.sp===s))}
-function vPause(){if(!V)return;V.paused=!V.paused;$("#vpz").textContent=V.paused?"▶":"⏸"}
-function vReplay(){if(V&&S&&S.result)startView(S.result,V.key)}
-function vSkip(){if(!V)return;let g=0;while(!V.done&&g++<20000)vStep();vRender();paintTable()}
+function vPause(){if(!V)return;if(V.waiting){vGo();return}V.paused=!V.paused;$("#vpz").textContent=V.paused?"▶":"⏸"}
+function vReplay(){if(V&&S&&S.result)startView(S.result,V.key,true)}
+function vSkip(){if(!V)return;if(V.waiting)vGo();let g=0;while(!V.done&&g++<20000)vStep();vRender();paintTable()}
 function vStep(){const v=V,D=v.D;v.frame++;const f=Math.floor(v.frame/FPS);
   v.hs.forEach((hz,i)=>{const x=f<D?BASE-hz.ranks[f]:(v.frame<=D*FPS?BASE:BASE-RUNON);v.pos[i]+=x;if(v.fin[i]===null&&v.pos[i]>=v.finishPos)v.fin[i]=v.frame+v.tk[i]});
   if(v.fin.every(x=>x!==null)){if(v.allFin==null)v.allFin=v.frame;if(v.frame>=Math.max(D*FPS+1+10*v.n,v.allFin+10))v.done=true}}
@@ -134,15 +174,29 @@ function vRender(){const v=V,D=v.D,vw=$("#view").clientWidth,sw=Math.max(320,vw-
   if(v.lref==null||v.frame<=D*FPS+1)v.lref=lead;
   const x=pp.map(p=>sx+p-Math.max(0,v.lref-(sw-sx))),rate=(D*5000-sw+50)/(D*FPS),off=rate*Math.max(0,Math.min(v.frame,D*FPS+2));
   $("#world").style.transform=`translateX(${-off}px)`;document.querySelectorAll(".layer").forEach(l=>l.style.transform=`translateX(${-(off%TILE)}px)`);
-  v.hs.forEach((_,i)=>{$("#L"+i).style.left=(x[i]+off)+"px";$("#N"+i).style.left=(x[i]+off-112-4)+"px"});
-  const f=Math.min(D,Math.floor(v.frame/FPS)+1);$("#vinfo").textContent=v.done?"Race finished · "+D+"f":`Furlong ${f} of ${D} · ${S.you&&myHorse()?"your horse: "+myHorse():""}`;
-  const ord=v.hs.map((_,i)=>i).sort((a,b)=>v.done||v.fin[a]!==null||v.fin[b]!==null?(v.fin[a]===null?1:v.fin[b]===null?-1:v.fin[a]-v.fin[b]):v.pos[b]-v.pos[a]),k=ord.join(",")+v.done;
-  if(k!==v.rk){v.rk=k;$("#rkb").innerHTML=ord.map((i,r)=>{const z=v.hs[i];return `<div style="background:${z.color}88"><b>${["1st","2nd","3rd"][r]||(r+1)+"th"}</b> &nbsp;${i+1} - ${esc(z.name)} <small>(${z.ai?"AI":esc(z.owner)}) ${esc(z.jockey)}</small></div>`}).join("")}}
+  const lw=112*LAY.size/100;v.hs.forEach((_,i)=>{$("#L"+i).style.left=(x[i]+off)+"px";$("#N"+i).style.left=(x[i]+off-lw-4)+"px"});
+  const lf=Math.max(0,Math.min(D,Math.max(...v.pos)/(v.finishPos/D))),fn=Math.min(D,Math.floor(lf)+1);
+  $("#skd").textContent=lf.toFixed(2)+" f";$("#skb").style.width=(lf>=D?100:(lf%1)*100)+"%";$("#skb2").style.width=(lf/D*100)+"%";
+  $("#vinfo").textContent=v.done?"Race finished · "+D+"f":`Furlong ${fn} of ${D}${myHorse()?" · your horse: "+myHorse():""}`;
+  if(v.frame>0&&!v.done&&fn!==v.fnum){v.fnum=fn;const b=$("#fban");b.innerHTML=`<b>Furlong ${fn}</b><small>${fn===D?"last furlong!":(D-fn)+" to go"}</small>`;b.classList.remove("show");void b.offsetWidth;b.classList.add("show")}
+  if(v.done&&v.fnum!==-1){v.fnum=-1;const b=$("#fban");b.innerHTML="<b>Finish!</b>";b.classList.remove("show");void b.offsetWidth;b.classList.add("show")}
+  document.querySelectorAll("#trp [data-f]").forEach(e=>e.classList.toggle("hi",+e.dataset.f===fn-1&&!v.done));
+  const ord=v.hs.map((_,i)=>i).sort((a,b)=>v.done?v.hs[a].position-v.hs[b].position:v.fin[a]!==null||v.fin[b]!==null?(v.fin[a]===null?1:v.fin[b]===null?-1:v.fin[a]-v.fin[b]):v.pos[b]-v.pos[a]),k=ord.join(",")+v.done;
+  if(k!==v.rk){v.rk=k;$("#rkb").innerHTML=ord.map((i,r)=>{const z=v.hs[i];return `<div style="background:${z.color}88"><b>${["1st","2nd","3rd"][r]||(r+1)+"th"}</b> &nbsp;${i+1} - ${esc(z.name)} <small>(${z.ai?"AI":esc(z.owner)}) ${esc(z.jockey)}</small></div>`}).join("")}
+  vPanels()}
+function vPanels(){const v=V;if(!UI.rk||!v)return;const D=v.D,fin=v.done,f=fin?D:Math.min(D,Math.floor(v.frame/FPS)),key=(fin?"F":f)+"|"+UI.z;if(v.rkKey===key)return;v.rkKey=key;
+  const pts=z=>z.ranks.slice(0,f).reduce((a,b)=>a+b,0),zero=z=>z.ranks.slice(0,f).filter(r=>r===0).length,rows=v.hs.map((z,i)=>i).sort((a,b)=>pts(v.hs[a])-pts(v.hs[b])||v.hs[a].ranks[Math.max(0,f-1)]-v.hs[b].ranks[Math.max(0,f-1)]||a-b);
+  const head=f===0?`<div class="trh"><b>Live ranks</b> · waiting for furlong 1</div>`:`<div class="trh"><b>${fin?"Final rank points · "+D+"f":"Live ranks · after furlong "+f+" of "+D}</b> <label><input type="checkbox" ${UI.z?"checked":""} onchange="UI.z=this.checked;lsSet('frUi',UI);V.rkKey=null;vPanels()"> show 0s count</label></div>`;
+  $("#rkp").innerHTML=head+(f===0?"":`<table><tr><th>#</th><th>No</th><th style="text-align:left">Horse · jockey</th>${[...Array(f)].map((_,q)=>`<th>${q+1}</th>`).join("")}<th>Total</th>${UI.z?"<th>0s</th>":""}</tr>${rows.map((i,k)=>{const z=v.hs[i];return `<tr class="${k<3?"g"+(k+1):""}"><td>${k+1}</td><td><span class="bd" style="background:${z.color}">${i+1}</span></td><td class="nm"><b>${esc(z.name)}</b> <i>· ${esc(z.jockey)}</i></td>${z.ranks.slice(0,f).map(r=>`<td${r===0?' class="z0"':""}>${r}</td>`).join("")}<td><b>${pts(z)}</b></td>${UI.z?`<td>${zero(z)}</td>`:""}</tr>`}).join("")}</table>`)}
 function myHorse(){const m=S&&S.result&&S.result.horses.find(z=>!z.ai&&z.owner===S.you);return m?m.name:""}
 function paintTable(){const R=S&&S.result;if(!R||!V||!$("#rtab"))return;const shown=V.done?R.distance:Math.min(V.D,Math.floor(V.frame/FPS));V.shown=shown;const done=V.done;
   const part=(hz,f)=>hz.ranks.slice(0,f).reduce((x,y)=>x+y,0);let hs=R.horses.slice();if(!done)hs.sort((x,y)=>part(x,shown)-part(y,shown));
-  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<h2>🏇 Racing… furlong ${Math.min(shown+1,R.distance)} of ${R.distance}</h2>`;
-  $("#rtab").innerHTML=`<table><tr><th>#</th><th>Horse</th><th>Points</th>${[...Array(R.distance)].map((_,i)=>`<th>${i+1}</th>`).join("")}</tr>
+  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<h2>🏇 ${V.waiting?"Ready to race":"Racing… furlong "+Math.min(shown+1,R.distance)+" of "+R.distance}</h2>`;
+  const t0=R.horses[0].total,lenOf=z=>Math.max(0,(z.total-t0)/4);
+  $("#rsum").innerHTML=done?`<div class="podium">${R.horses.slice(0,3).map((z,k)=>`<div><img src="assets/${["1st","2nd","3rd"][k]}.png"><br><b>${esc(z.name)}</b></div>`).join("")}</div>
+   <div class="scroll"><table class="sum"><tr><th>#</th><th>Horse</th><th>Who</th><th>Jockey</th><th>Rank points</th><th>Behind winner</th><th>By (over the next horse)</th></tr>${R.horses.map((z,k)=>{const nx=R.horses[k+1],p=z.total-t0;return `<tr class="${z.owner===S.you&&!z.ai?"me":""}"><td>${k+1}</td><td class="n"><span class="dot" style="background:${z.color}"></span>${esc(z.name)}</td><td>${z.ai?"AI":esc(z.owner)}</td><td class="n">${esc(z.jockey)}</td><td><b>${z.total}</b></td><td>${k===0?"–":lenTxt(lenOf(z))+' <span class="mut">('+p+' point'+(p===1?"":"s")+")</span>"}</td><td>${nx?lenTxt(lenOf(nx)-lenOf(z)):"–"}</td></tr>`}).join("")}</table></div>
+   <p class="mut">4 rank points = 1 horse length. Equal points = a nose.</p>`:"";
+  $("#rtab").innerHTML=`<table><tr><th>#</th><th>Horse</th><th>Points</th>${[...Array(R.distance)].map((_,i)=>`<th class="${!done&&i===shown?"cur":""}">${i+1}</th>`).join("")}</tr>
       ${hs.map((hz,idx)=>`<tr class="${done&&hz.position<=3?"p"+hz.position:""} ${hz.owner===S.you&&!hz.ai?"me":""}"><td>${done?hz.position:idx+1}</td><td class="n"><span class="dot" style="background:${hz.color}"></span>${esc(hz.name)}${hz.ai?" 🤖":""}<br><small class="mut">${hz.ai?"AI":esc(hz.owner)} · ${esc(hz.jockey)}</small></td><td><b>${part(hz,shown)}</b></td>
       ${hz.plan.map((v,f)=>f<shown?`<td class="${hz.ranks[f]===0?"r0":""}" title="${hz.how[f]==="s"?"equal training: horse+jockey speed decided":hz.how[f]==="r"?"equal training and equal speed: random":"rank "+hz.ranks[f]}">${v}${hz.how[f]?`<sup class="tb">${hz.how[f]==="s"?"⚡":"🎲"}</sup>`:""}<br><small>${hz.ranks[f]}</small></td>`:`<td class="hid">·</td>`).join("")}</tr>`).join("")}</table>`;
   $("#rnext").style.display=done?"block":"none"}
@@ -181,7 +235,7 @@ function draw(){
     else h+=`<div class="card mut">Waiting for the host to start the race…</div>`;
   }else{
     const R=S.result,key=S.code+"|"+S.round;
-    h+=`<div class="card"><div id="rhead"></div>${viewHtml(R)}<div class="scroll" id="rtab"></div>
+    h+=`<div class="card"><div id="rhead"></div>${viewHtml(R)}<div id="rsum"></div><div class="scroll" id="rtab"></div>
       <p class="mut">Top number = training points, small number = points for that furlong (0 = won the furlong, green). ⚡ = same training as another horse, so horse + jockey speed decided. 🎲 = same training and same speed, so random. On the track: the winner of each furlong gets 0 points and runs fastest.</p></div>
       <div class="card" id="rnext" style="display:none">${S.host?`<button onclick="act('/api/next')">Next round (new trainings)</button>`:`<span class="mut">The host can start the next round.</span>`}</div>`;
     pendingView=[R,key];
