@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family Race</title>
+<style>
+:root{--bg:#f5f1e8;--card:#fff;--ink:#1d2a24;--mut:#667;--acc:#1f7a4d;--acc2:#e0a800;--bad:#b3261e;--line:#d9d2c0;--gold:#ffe9a8;--silver:#e6e9ee;--bronze:#f1d2b5}
+@media (prefers-color-scheme:dark){:root{--bg:#14201a;--card:#1d2c24;--ink:#eef3ee;--mut:#9ab;--acc:#46c98a;--acc2:#f0c24b;--bad:#ff8a80;--line:#2f4538;--gold:#5c4a12;--silver:#39434a;--bronze:#5a3d26}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,sans-serif}
+main{max-width:880px;margin:0 auto;padding:16px}
+h1{margin:6px 0 2px;font-size:26px} h2{font-size:19px;margin:0 0 8px}
+.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+input,select,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button{cursor:pointer;background:var(--acc);color:#fff;border:0;font-weight:600} button.sec{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--bad);min-height:1.3em;margin:6px 0}
+.code{font-size:34px;letter-spacing:6px;font-weight:800;color:var(--acc)}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;border:1px solid var(--line);margin:2px;font-size:14px}
+.chip.ok{background:var(--acc);color:#fff;border-color:var(--acc)}
+.plan{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
+.plan label{display:block;font-size:12px;color:var(--mut);text-align:center}
+.plan input{width:100%;text-align:center;padding:8px 2px}
+.tot{font-weight:700} .tot.bad{color:var(--bad)} .tot.good{color:var(--acc)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px} th,td{border:1px solid var(--line);padding:4px 6px;text-align:center;white-space:nowrap}
+td.n{text-align:left;font-weight:600}
+.p1{background:var(--gold)}.p2{background:var(--silver)}.p3{background:var(--bronze)}
+td.r0{background:var(--acc);color:#fff;font-weight:700} td.hid{color:var(--line)}
+.me{outline:2px solid var(--acc2)}
+.mut{color:var(--mut);font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>🏇 Family Race</h1>
+<p class="sub">Everyone writes a secret training (numbers add up to 100). The higher number wins each furlong. Lowest rank points win the race.</p>
+<div id="app"></div>
+<p class="mut">How a race works: in every furlong the horse with the higher number is first (0 points), the next gets 1 point, and so on. Ties are decided at random. After all furlongs the horse with the fewest points wins.</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S=null,session=null,err="",timer=null,reveal=null,revealKey="",planDraft=null,draftKey="",poll=0;
+try{session=JSON.parse(sessionStorage.getItem("fr")||"null")}catch(e){}
+function save(){try{sessionStorage.setItem("fr",JSON.stringify(session))}catch(e){}}
+async function call(path,body){
+  try{
+    const r=body===undefined?await fetch(path):await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||"Error");return j;
+  }catch(e){throw e}
+}
+async function create(){const n=$("#nm").value;try{const j=await call("/api/create",{name:n});session={code:j.code,token:j.token};save();err="";tick()}catch(e){err=e.message;draw()}}
+async function join(){const n=$("#nm").value,c=$("#cd").value.trim().toUpperCase();try{const j=await call("/api/join",{code:c,name:n});session={code:j.code,token:j.token};save();err="";tick()}catch(e){err=e.message;draw()}}
+function leave(){if(session)call("/api/leave",session).catch(()=>{});session=null;S=null;save();draw()}
+async function tick(){
+  if(!session){draw();return}
+  try{S=await call("/api/state?code="+encodeURIComponent(session.code)+"&token="+encodeURIComponent(session.token));err=""}
+  catch(e){err=e.message;if(/not found|not in this room/i.test(err)){session=null;S=null;save()}}
+  draw();
+}
+async function act(path,extra){try{S=await call(path,Object.assign({},session,extra||{}));err=""}catch(e){err=e.message}draw()}
+function setDistance(){act("/api/settings",{distance:+$("#dist").value,ai:S.ai})}
+function setAi(){act("/api/settings",{distance:S.distance,ai:+$("#ai").value})}
+function curPlan(){return [...document.querySelectorAll(".plan input")].map(i=>parseInt(i.value||"0",10)||0)}
+function updTot(){const p=curPlan();planDraft=p;const t=p.reduce((a,b)=>a+b,0),el=$("#tot");if(!el)return;el.textContent=t+" / 100";el.className="tot "+(t===100?"good":"bad");$("#sub").disabled=!(t===100&&p.every(x=>x>=0))}
+function randPlan(){const D=S.distance,w=[...Array(D)].map(()=>Math.random()+.2),s=w.reduce((a,b)=>a+b,0),q=w.map(x=>x*100/s),r=q.map(Math.floor);let rem=100-r.reduce((a,b)=>a+b,0);q.map((x,i)=>[x-Math.floor(x),i]).sort((a,b)=>b[0]-a[0]).slice(0,rem).forEach(([_,i])=>r[i]++);fill(r)}
+function flatPlan(){const D=S.distance,b=Math.floor(100/D),r=Array(D).fill(b);for(let i=0;i<100-b*D;i++)r[i]++;fill(r)}
+function clearPlan(){fill(Array(S.distance).fill(0))}
+function fill(r){document.querySelectorAll(".plan input").forEach((i,k)=>i.value=r[k]);planDraft=r;updTot()}
+function submitPlan(){const p=curPlan();planDraft=p;act("/api/plan",{plan:p})}
+function startReveal(res){const k=S.code+"|"+S.round;if(revealKey===k)return;revealKey=k;reveal=0;clearInterval(timer);timer=setInterval(()=>{reveal++;draw();if(reveal>=res.distance){clearInterval(timer);reveal=res.distance}},700)}
+function skip(){clearInterval(timer);reveal=S.result.distance;draw()}
+function draw(){
+  const a=$("#app");
+  if(!session||!S){
+    a.innerHTML=`<div class="card"><h2>Join or start a race</h2>
+      <div class="row"><input id="nm" placeholder="Your name" maxlength="20" autocomplete="off"></div>
+      <div class="row" style="margin-top:10px"><button onclick="create()">Create a new room</button></div>
+      <p class="mut">or join with a room code:</p>
+      <div class="row"><input id="cd" placeholder="CODE" maxlength="4" style="width:100px;text-transform:uppercase"><button class="sec" onclick="join()">Join room</button></div>
+      <div class="err">${esc(err)}</div></div>`;return}
+  const D=S.distance;let h=`<div class="card"><div class="row" style="justify-content:space-between"><div><span class="mut">Room code</span><div class="code">${esc(S.code)}</div></div><div class="mut">You: <b>${esc(S.you||"")}</b>${S.host?" (host)":""} · Round ${S.round}<br><a href="#" onclick="leave();return false">Leave room</a></div></div>
+    <div>${S.players.map(p=>`<span class="chip ${p.ready?"ok":""}">${esc(p.name)}${p.host?" ★":""}${S.phase==="lobby"?(p.ready?" ✓ ready":" …"):""}</span>`).join("")}</div></div>`;
+  if(S.phase==="lobby"){
+    h+=`<div class="card"><h2>Race settings</h2><div class="row">
+      <label>Distance <select id="dist" onchange="setDistance()" ${S.host?"":"disabled"}>${[...Array(20)].map((_,i)=>`<option value="${i+5}" ${i+5===D?"selected":""}>${i+5} furlongs</option>`).join("")}</select></label>
+      <label>AI horses <select id="ai" onchange="setAi()" ${S.host?"":"disabled"}>${[...Array(S.max_ai+1)].map((_,i)=>`<option ${i===S.ai?"selected":""}>${i}</option>`).join("")}</select></label></div>
+      <p class="mut">${S.host?"You choose the distance and the AI horses. Changing the distance clears everybody's plan.":"The host chooses the distance and the AI horses."}</p></div>`;
+    const key=S.code+"|"+S.round+"|"+D;if(draftKey!==key){draftKey=key;planDraft=S.your_plan?S.your_plan.slice():null}
+    const vals=planDraft&&planDraft.length===D?planDraft:(S.your_plan||Array(D).fill(0));
+    h+=`<div class="card"><h2>Your secret training (${D} furlongs)</h2><div class="plan">${vals.map((v,i)=>`<div><label>${i+1}</label><input type="number" inputmode="numeric" min="0" max="100" value="${v}" oninput="updTot()"></div>`).join("")}</div>
+      <div class="row" style="margin-top:10px"><span id="tot" class="tot">0 / 100</span>
+      <button id="sub" onclick="submitPlan()">${S.your_plan?"Update my training":"Lock in my training"}</button>
+      <button class="sec" onclick="randPlan()">Random</button><button class="sec" onclick="flatPlan()">Even</button><button class="sec" onclick="clearPlan()">Clear</button></div>
+      <p class="mut">${S.your_plan?"✓ Locked in. You can change it until the host starts. Nobody else can see it.":"Put points on each furlong: the numbers must add up to exactly 100."}</p></div>`;
+    if(S.host){const wait=S.players.filter(p=>!p.ready).map(p=>p.name);
+      h+=`<div class="card"><button onclick="act('/api/start')" ${wait.length||S.players.length+S.ai<2?"disabled":""}>🏁 Start the race</button>
+      <span class="mut"> ${wait.length?"Waiting for: "+esc(wait.join(", ")):(S.players.length+S.ai<2?"Add an AI horse or wait for a friend.":"Everybody is ready.")}</span></div>`}
+    else h+=`<div class="card mut">Waiting for the host to start the race…</div>`;
+  }else{
+    const R=S.result;startReveal(R);const shown=reveal===null?R.distance:Math.min(reveal,R.distance);const done=shown>=R.distance;
+    const part=(hz,f)=>hz.ranks.slice(0,f).reduce((x,y)=>x+y,0);
+    let hs=R.horses.slice();if(!done)hs.sort((x,y)=>part(x,shown)-part(y,shown));
+    h+=`<div class="card"><h2>${done?"🏆 Result":"🏇 Racing… furlong "+shown+" of "+R.distance}</h2>
+      ${done?`<p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<button class="sec" onclick="skip()">Skip to the finish</button>`}
+      <div class="scroll"><table><tr><th>#</th><th>Horse</th><th>Points</th>${[...Array(R.distance)].map((_,i)=>`<th>${i+1}</th>`).join("")}</tr>
+      ${hs.map((hz,idx)=>`<tr class="${done&&hz.position<=3?"p"+hz.position:""} ${hz.owner===S.you&&!hz.ai?"me":""}"><td>${done?hz.position:idx+1}</td><td class="n">${esc(hz.name)}${hz.ai?" 🤖":""}</td><td><b>${part(hz,shown)}</b></td>
+      ${hz.plan.map((v,f)=>f<shown?`<td class="${hz.ranks[f]===0?"r0":""}" title="rank ${hz.ranks[f]}">${v}<br><small>${hz.ranks[f]}</small></td>`:`<td class="hid">·</td>`).join("")}</tr>`).join("")}</table></div>
+      <p class="mut">Top number = training points, small number = points for that furlong (0 = won the furlong, green).</p></div>`;
+    if(done)h+=S.host?`<div class="card"><button onclick="act('/api/next')">Next round (new trainings)</button></div>`:`<div class="card mut">The host can start the next round.</div>`;
+  }
+  h+=`<div class="err">${esc(err)}</div>`;a.innerHTML=h;
+  if(S.phase==="lobby")updTot();
+}
+function loop(){if(session&&!document.hidden)tickQuiet();setTimeout(loop,1500)}
+async function tickQuiet(){
+  if(!session)return;
+  try{const n=await call("/api/state?code="+encodeURIComponent(session.code)+"&token="+encodeURIComponent(session.token));
+    const ae=document.activeElement,old=S;
+    const typing=ae&&ae.tagName==="INPUT"&&old&&old.phase==="lobby"&&n.phase==="lobby"&&old.round===n.round&&old.distance===n.distance;
+    S=n;err="";
+    if(typing)return; /* never redraw while someone types a number */
+    if(!old||JSON.stringify(old)!==JSON.stringify(n))draw();
+  }catch(e){if(/not found|not in this room/i.test(e.message)){session=null;S=null;save();err=e.message}draw()}
+}
+tick();loop();
+</script>
+</body>
+</html>
