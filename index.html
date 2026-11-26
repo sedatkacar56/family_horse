@@ -78,7 +78,7 @@ sup.tb{font-size:10px;color:var(--acc2);font-weight:800}
 table.sum td,table.sum th{padding:4px 8px}
 th.cur{background:#ffe9a8}
 .mut{color:var(--mut);font-size:14px}
-</style>
+.gp{float:right;margin-left:8px;font:700 11px Arial;background:#000a;color:#ffd54a;padding:0 6px;border-radius:8px}</style>
 </head>
 <body>
 <main>
@@ -187,7 +187,8 @@ function vRender(){const v=V,D=v.D,vw=$("#view").clientWidth,sw=Math.max(320,vw-
   if(v.done&&v.fnum!==-1){v.fnum=-1;const b=$("#fban");b.innerHTML="<b>Finish!</b>";b.classList.remove("show");void b.offsetWidth;b.classList.add("show")}
   document.querySelectorAll("#trp [data-f]").forEach(e=>e.classList.toggle("hi",+e.dataset.f===fn-1&&!v.done));
   const ord=v.hs.map((_,i)=>i).sort((a,b)=>v.done?v.hs[a].position-v.hs[b].position:v.fin[a]!==null||v.fin[b]!==null?(v.fin[a]===null?1:v.fin[b]===null?-1:v.fin[a]-v.fin[b]):v.pos[b]-v.pos[a]),k=ord.join(",")+v.done;
-  if(k!==v.rk){v.rk=k;$("#rkb").innerHTML=ord.map((i,r)=>{const z=v.hs[i];return `<div style="background:${z.color}88"><b>${["1st","2nd","3rd"][r]||(r+1)+"th"}</b> &nbsp;${i+1} - ${esc(z.name)} <small>(${z.ai?"AI":esc(z.owner)}) ${esc(z.jockey)}</small></div>`}).join("")}
+  const lp=Math.max(...v.pos),t0=v.hs[ord[0]].total,gap=i=>v.done?Math.max(0,(v.hs[i].total-t0)/4):Math.max(0,(lp-v.pos[i])/200),gt=ord.map((i,r)=>r===0?"":"+ "+lenTxt(gap(i))),k2=k+"|"+gt.join("|");
+  if(k2!==v.rk){v.rk=k2;$("#rkb").innerHTML=ord.map((i,r)=>{const z=v.hs[i];return `<div style="background:${z.color}88"><b>${["1st","2nd","3rd"][r]||(r+1)+"th"}</b> &nbsp;${i+1} - ${esc(z.name)} <small>(${z.ai?"AI":esc(z.owner)}) ${esc(z.jockey)}</small>${r===0?"":` <span class="gp">${gt[r]}</span>`}</div>`}).join("")}
   vPanels()}
 function vPanels(){const v=V;if(!UI.rk||!v)return;const D=v.D,fin=v.done,f=fin?D:Math.min(D,Math.floor(v.frame/FPS)),key=(fin?"F":f)+"|"+UI.z;if(v.rkKey===key)return;v.rkKey=key;
   const pts=z=>z.ranks.slice(0,f).reduce((a,b)=>a+b,0),zero=z=>z.ranks.slice(0,f).filter(r=>r===0).length,rows=v.hs.map((z,i)=>i).sort((a,b)=>pts(v.hs[a])-pts(v.hs[b])||v.hs[a].ranks[Math.max(0,f-1)]-v.hs[b].ranks[Math.max(0,f-1)]||a-b);
