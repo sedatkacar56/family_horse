@@ -31,6 +31,15 @@ td.n{text-align:left;font-weight:600}
 .p1{background:var(--gold)}.p2{background:var(--silver)}.p3{background:var(--bronze)}
 td.r0{background:var(--acc);color:#fff;font-weight:700} td.hid{color:var(--line)}
 .me{outline:2px solid var(--acc2)}
+.track{margin:8px 0 12px;background:linear-gradient(#7bb661,#5e9b49);border-radius:10px;padding:6px 6px 6px 6px}
+.lane{display:flex;align-items:center;gap:6px;margin:3px 0}
+.ln{width:96px;flex:none;font-size:12px;color:#fff;text-shadow:0 1px 2px #0008;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.tk{position:relative;flex:1;height:30px;border-bottom:2px dashed #ffffff90;background-image:repeating-linear-gradient(90deg,#ffffff55 0,#ffffff55 1px,transparent 1px,transparent var(--fw))}
+.fin{position:absolute;right:4%;top:0;bottom:0;width:6px;background:repeating-linear-gradient(#fff 0 5px,#222 5px 10px)}
+.hs{position:absolute;top:0;font-size:24px;line-height:30px;transition:left .65s linear;transform:scaleX(-1);filter:drop-shadow(0 1px 1px #0008)}
+.hs.me{filter:drop-shadow(0 0 4px #ffd84a)}
+.hs .nm{position:absolute;left:-2px;top:-9px;font-size:10px;color:#fff;transform:scaleX(-1);white-space:nowrap}
+.fl{display:flex;justify-content:space-between;color:#fff;font-size:11px;padding-left:102px;padding-right:4%}
 .mut{color:var(--mut);font-size:14px}
 </style>
 </head>
@@ -74,6 +83,16 @@ function fill(r){document.querySelectorAll(".plan input").forEach((i,k)=>i.value
 function submitPlan(){const p=curPlan();planDraft=p;act("/api/plan",{plan:p})}
 function startReveal(res){const k=S.code+"|"+S.round;if(revealKey===k)return;revealKey=k;reveal=0;clearInterval(timer);timer=setInterval(()=>{reveal++;draw();if(reveal>=res.distance){clearInterval(timer);reveal=res.distance}},700)}
 function skip(){clearInterval(timer);reveal=S.result.distance;draw()}
+
+let prevX={};
+function lanes(R){const a=R.horses.slice();return a.sort((x,y)=>(x.ai-y.ai)||x.name.localeCompare(y.name))}
+function xAt(hz,n,D,f){let p=0;for(let k=0;k<f;k++)p+=1-0.35*hz.ranks[k]/Math.max(1,n-1);return 2+p/D*86}
+function trackHtml(R,shown,done){const n=R.horses.length,D=R.distance;
+  const L=lanes(R);
+  const medal=h=>done?(h.position===1?"🥇":h.position===2?"🥈":h.position===3?"🥉":""):"";
+  const rows=L.map((hz,i)=>`<div class="lane"><div class="ln">${medal(hz)} ${esc(hz.name)}${hz.ai?" 🤖":""}</div><div class="tk" style="--fw:${(100/D).toFixed(3)}%"><div class="fin"></div><div class="hs ${hz.owner===S.you&&!hz.ai?"me":""}" data-n="${esc(hz.name)}" data-x="${xAt(hz,n,D,shown).toFixed(1)}" style="left:${(prevX[hz.name]!==undefined?prevX[hz.name]:2)}%">🐎</div></div></div>`).join("");
+  return `<div class="track">${rows}<div class="fl"><span>Start</span><span>Furlong ${shown} of ${D}</span><span>Finish</span></div></div>`}
+function moveHorses(){requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll(".hs").forEach(e=>{const x=e.dataset.x;e.style.left=x+"%";prevX[e.dataset.n]=parseFloat(x)})}))}
 function draw(){
   const a=$("#app");
   if(!session||!S){
@@ -107,6 +126,7 @@ function draw(){
     let hs=R.horses.slice();if(!done)hs.sort((x,y)=>part(x,shown)-part(y,shown));
     h+=`<div class="card"><h2>${done?"🏆 Result":"🏇 Racing… furlong "+shown+" of "+R.distance}</h2>
       ${done?`<p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<button class="sec" onclick="skip()">Skip to the finish</button>`}
+      ${trackHtml(R,shown,done)}
       <div class="scroll"><table><tr><th>#</th><th>Horse</th><th>Points</th>${[...Array(R.distance)].map((_,i)=>`<th>${i+1}</th>`).join("")}</tr>
       ${hs.map((hz,idx)=>`<tr class="${done&&hz.position<=3?"p"+hz.position:""} ${hz.owner===S.you&&!hz.ai?"me":""}"><td>${done?hz.position:idx+1}</td><td class="n">${esc(hz.name)}${hz.ai?" 🤖":""}</td><td><b>${part(hz,shown)}</b></td>
       ${hz.plan.map((v,f)=>f<shown?`<td class="${hz.ranks[f]===0?"r0":""}" title="rank ${hz.ranks[f]}">${v}<br><small>${hz.ranks[f]}</small></td>`:`<td class="hid">·</td>`).join("")}</tr>`).join("")}</table></div>
@@ -114,6 +134,7 @@ function draw(){
     if(done)h+=S.host?`<div class="card"><button onclick="act('/api/next')">Next round (new trainings)</button></div>`:`<div class="card mut">The host can start the next round.</div>`;
   }
   h+=`<div class="err">${esc(err)}</div>`;a.innerHTML=h;
+  if(S.phase==="done")moveHorses();else prevX={};
   if(S.phase==="lobby")updTot();
 }
 function loop(){if(session&&!document.hidden)tickQuiet();setTimeout(loop,1500)}
