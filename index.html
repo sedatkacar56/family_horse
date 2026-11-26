@@ -223,7 +223,8 @@ function draw(){
       <label>Distance <select id="dist" onchange="setDistance()" ${S.host?"":"disabled"}>${[...Array(20)].map((_,i)=>`<option value="${i+5}" ${i+5===D?"selected":""}>${i+5} furlongs</option>`).join("")}</select></label>
       <label>AI horses <select id="ai" onchange="setAi()" ${S.host?"":"disabled"}>${[...Array(S.max_ai+1)].map((_,i)=>`<option ${i===S.ai?"selected":""}>${i}</option>`).join("")}</select></label></div>
       <p class="mut">${S.host?"You choose the distance and the AI horses. Changing the distance clears everybody's plan.":"The host chooses the distance and the AI horses."}</p></div>`;
-    const key=S.code+"|"+S.round+"|"+D;if(draftKey!==key){draftKey=key;planDraft=S.your_plan?S.your_plan.slice():null}
+    if(S.last&&S.last.horses&&S.last.horses.length)h+=`<div class="card"><h2>Previous race (${S.last.distance}f)</h2><div class="scroll"><table><tr><th>#</th><th>Horse</th><th>Points</th><th>Training</th></tr>${S.last.horses.map(z=>`<tr class="${z.you?"me":""}"><td>${z.position}</td><td class="n">${esc(z.name)}${z.ai?" 🤖":""}${z.stable?`<br><small class="mut">${esc(z.stable)}</small>`:""}${z.you?" <b>(you)</b>":""}</td><td>${z.total}</td><td style="font-size:12px">${z.plan?z.plan.join(", "):"secret"}</td></tr>`).join("")}</table></div><p class="mut">Your training from last race is filled in below${S.your_last&&S.your_last.length===D?"":" (only when the distance is the same)"} - change it if you like. ${S.host?"New AI opponents are drawn at the start; change the number of AI horses or the distance above.":"The host can change the AI horses and the distance."}</p></div>`;
+    const key=S.code+"|"+S.round+"|"+D;if(draftKey!==key){draftKey=key;planDraft=S.your_plan?S.your_plan.slice():(S.your_last&&S.your_last.length===D?S.your_last.slice():null)}
     const vals=planDraft&&planDraft.length===D?planDraft:(S.your_plan||Array(D).fill(0));
     const YH=S.your_horse,eff=YH?YH.speeds.map((v,i)=>v+YH.jspeeds[i]):[],mx=Math.max(1,...eff),mn=Math.min(...eff,mx);
     if(YH)h+=`<div class="card"><h2><span class="dot" style="background:${YH.color}"></span>${esc(YH.name)} <small class="mut">· ${esc(YH.style)} · jockey ${esc(YH.jockey)}</small></h2>
@@ -242,7 +243,7 @@ function draw(){
     const R=S.result,key=S.code+"|"+S.round;
     h+=`<div class="card"><div id="rhead"></div>${viewHtml(R)}<div id="rsum"></div><div class="scroll" id="rtab"></div>
       <p class="mut">Your own row: top number = your training, small number = rank points for that furlong (0 = won the furlong, green). Other players: only the rank points (secret). AI horses: their real training from our data is shown (a Clever estimate of a real race plan). ⚡ = same training as another horse, so horse + jockey speed decided. 🎲 = same training and same speed, so random. On the track: the winner of each furlong gets 0 points and runs fastest.</p></div>
-      <div class="card" id="rnext" style="display:none">${S.host?`<button onclick="act('/api/next')">Next round (new trainings)</button>`:`<span class="mut">The host can start the next round.</span>`}</div>`;
+      <div class="card" id="rnext" style="display:none">${S.host?`<button onclick="act('/api/next')">🔁 Race again (same room)</button>`:`<span class="mut">The host can start another race in this room.</span>`}</div>`;
     pendingView=[R,key];
   }
   h+=`<div class="err">${esc(err)}</div>`;a.innerHTML=h;

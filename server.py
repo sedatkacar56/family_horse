@@ -153,6 +153,11 @@ def room_state(room, token):
               your_plan=me["plan"] if me else None, max_ai=MAX_AI,
               your_horse=dict(name=me["horse"]["name"], color=me["horse"]["color"], style=me["horse"]["style"], speeds=me["horse"]["speeds"][:room["distance"]],
                               jockey=me["horse"]["jockey"]["name"], jspeeds=me["horse"]["jockey"]["speeds"][:room["distance"]]) if me else None)
+    lt = room.get("last")
+    if lt and room["phase"] == "lobby":
+        st["last"] = dict(distance=lt["distance"], horses=[dict(name=h["name"], stable=h["stable"], ai=h["ai"], position=h["position"], total=h["total"],
+                          plan=h["plan"] if (h["ai"] or (me and h["owner"] == me["name"])) else None, you=bool(me and not h["ai"] and h["owner"] == me["name"])) for h in lt["horses"]])
+        st["your_last"] = me.get("last_plan") if me else None
     if room["phase"] == "done":
         R = room["result"]
         hs = []
@@ -322,6 +327,10 @@ def api(path, d):
     if path == "/api/next":
         if not host:
             raise Err("Only the host can start the next round.")
+        R = room["result"]
+        room["last"] = dict(distance=R["distance"], horses=[dict(name=h["name"], stable=h.get("stable", ""), ai=h["ai"], owner=h["owner"], position=h["position"], total=h["total"], plan=h["plan"]) for h in R["horses"]])
+        for p in room["players"]:
+            p["last_plan"] = p["plan"]
         room["phase"], room["result"], room["rc"] = "lobby", None, None
         room["round"] += 1
         for p in room["players"]:
