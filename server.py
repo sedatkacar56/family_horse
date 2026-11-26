@@ -149,8 +149,26 @@ def room_state(room, token):
               your_horse=dict(name=me["horse"]["name"], color=me["horse"]["color"], style=me["horse"]["style"], speeds=me["horse"]["speeds"][:room["distance"]],
                               jockey=me["horse"]["jockey"]["name"], jspeeds=me["horse"]["jockey"]["speeds"][:room["distance"]]) if me else None)
     if room["phase"] == "done":
-        st["result"] = room["result"]
+        R = room["result"]
+        hs = []
+        for h in R["horses"]:
+            c = dict(h)
+            c["savg"] = round(sum(h["speeds"]) / max(1, len(h["speeds"])))
+            c["javg"] = round(sum(h["jspeeds"]) / max(1, len(h["jspeeds"])))
+            if h["ai"] or not me or h["owner"] != me["name"]:   # everybody sees only their OWN training and speeds
+                c["plan"], c["speeds"], c["jspeeds"] = None, None, None
+            hs.append(c)
+        st["result"] = dict(R, horses=hs)
+        rc = room.get("rc")
+        if rc:
+            st["rc"] = dict(state=rc["state"], speed=rc["speed"], replay=rc["replay"], frame=frame_now(rc), server_time=time.time(), fps=1000.0 / (100 + 5 * rc["n"]))
     return st
+
+
+def frame_now(rc):
+    if rc["state"] == "play":
+        return rc["base_frame"] + (time.time() - rc["base_t"]) * (1000.0 / (100 + 5 * rc["n"])) * rc["speed"]
+    return rc["base_frame"]
 
 
 class Err(Exception):
@@ -258,11 +276,37 @@ def api(path, d):
             if not hz["ai"]:
                 fm.setdefault(hz["name"].lower(), []).append(hz["position"])
         room["phase"] = "done"
+        room["rc"] = dict(state="card", speed=1.0, base_frame=0.0, base_t=time.time(), replay=0, n=len(entries))
+        return room_state(room, me["token"])
+    if path == "/api/race":
+        if not host:
+            raise Err("Only the host controls the race.")
+        rc = room.get("rc")
+        if room["phase"] != "done" or not rc:
+            raise Err("No race to control.")
+        a = str(d.get("action", ""))
+        now = time.time()
+        cur = frame_now(rc)
+        if a == "go" and rc["state"] == "card":
+            rc.update(state="play", base_frame=0.0, base_t=now)
+        elif a == "pause" and rc["state"] == "play":
+            rc.update(state="pause", base_frame=cur)
+        elif a == "resume" and rc["state"] == "pause":
+            rc.update(state="play", base_t=now)
+        elif a == "speed":
+            v = float(d.get("speed", 1))
+            if v not in (0.25, 0.5, 1.0, 2.0, 4.0, 10.0):
+                raise Err("Bad speed.")
+            rc.update(base_frame=cur, base_t=now, speed=v)
+        elif a == "skip" and rc["state"] != "card":
+            rc.update(state="pause", base_frame=1e6)
+        elif a == "replay":
+            rc.update(state="play", base_frame=0.0, base_t=now, replay=rc["replay"] + 1)
         return room_state(room, me["token"])
     if path == "/api/next":
         if not host:
             raise Err("Only the host can start the next round.")
-        room["phase"], room["result"] = "lobby", None
+        room["phase"], room["result"], room["rc"] = "lobby", None, None
         room["round"] += 1
         for p in room["players"]:
             p["plan"] = None

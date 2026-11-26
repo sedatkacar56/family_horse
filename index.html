@@ -71,7 +71,7 @@ sup.tb{font-size:10px;color:var(--acc2);font-weight:800}
 .pan .trh{padding:6px 10px;border-bottom:1px solid #fff3}.pan table{border-collapse:collapse;margin:4px 8px 8px}.pan td,.pan th{padding:2px 6px;text-align:center;color:#fff;border-bottom:1px solid #fff2}.pan td.nm{text-align:left;white-space:nowrap}
 .pan .hi{background:#5a4a12}.pan tr.g1 td{background:#6b5a1a}.pan tr.g2 td{background:#4a4f5a}.pan tr.g3 td{background:#5a3a22}.pan td.z0{color:#7dffb0;font-weight:700}
 .bd{display:inline-block;min-width:18px;height:18px;line-height:18px;border-radius:9px;text-align:center;color:#fff;font:700 11px Arial;padding:0 3px}
-#skc{display:none;position:absolute;left:10px;right:10px;top:90px;z-index:90;background:#f7f1dc;color:#222;border:3px solid #3b2410;border-radius:12px;padding:10px;max-height:78%;overflow:auto}
+#skc{display:none;background:#f7f1dc;color:#222;border:3px solid #3b2410;border-radius:12px;padding:10px;margin:8px 0;max-height:420px;overflow:auto}.hostnote{background:#000b;color:#fff;font:12px Arial;padding:6px 10px;border-radius:14px;align-self:center}.waitnote{font-weight:700;color:#7a4a24}
 #skc .hd{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px;margin-bottom:6px}#skc .go2{background:#c9302c;color:#fff;border:0;font-weight:800;padding:10px 18px;border-radius:8px}
 #skc table{border-collapse:collapse;width:100%}#skc td,#skc th{border-bottom:1px solid #0002;padding:4px 6px;text-align:left;color:#222}#skc .hwl{color:#555;font-size:11px}#skc tr.meR td{background:#ffe9a8}
 .podium{display:flex;gap:18px;justify-content:center;text-align:center;margin:10px 0}.podium img{height:70px}
@@ -128,48 +128,52 @@ function lenTxt(L){if(L<.12)return "a nose";if(L<.2)return "a short head";if(L<.
 const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):0;
 function lanes(R){const a=R.horses.slice();return a.sort((x,y)=>(x.ai-y.ai)||x.name.localeCompare(y.name))}
 function viewHtml(R){let y=0;const ls=LAYERS.map((hh,k)=>{const s=`<div class="layer" style="top:${y}px;height:${hh}px;background-image:url(assets/track/${k+1}.jpg)"></div>`;y+=hh;return s}).join("");
+  const host=S&&S.host;
   return `<div class="vctl"><label>Horse size <input type="range" id="szr" min="50" max="220" value="${LAY.size}" oninput="setLay('size',this.value)"> <input type="number" id="szn" min="50" max="220" value="${LAY.size}" oninput="setLay('size',this.value)">%</label>
    <label>Space between horses <input type="range" id="gpr" min="6" max="90" value="${LAY.gap??autoGap(R.horses.length)}" oninput="setLay('gap',this.value)"> <input type="number" id="gpn" min="6" max="90" value="${LAY.gap??autoGap(R.horses.length)}" oninput="setLay('gap',this.value)">px</label>
-   <label><input type="checkbox" ${LAY.names?"checked":""} onchange="LAY.names=this.checked;lsSet('frLay',LAY);vLayout()"> names</label></div>
+   <label><input type="checkbox" ${LAY.names?"checked":""} onchange="LAY.names=this.checked;lsSet('frLay',LAY);vLayout()"> names</label> <span class="mut">(only for your screen)</span></div>
+  <div id="skc"></div>
   <div id="view">${ls}<div id="world"></div><div id="vinfo"></div>
-   <div class="vb"><button id="vpz" onclick="vPause()">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vSpeed(${q[0]})">${q[1]}</button>`).join("")}<button onclick="vReplay()" title="Replay">↻</button><button onclick="vSkip()" title="Skip to the finish">⏭</button>
-     <button class="wide ${UI.rk?"on":""}" id="rkbtn" onclick="vToggle('rk')">🏁 Ranks</button><button class="wide ${UI.tr?"on":""}" id="trbtn" onclick="vToggle('tr')">📋 Trainings</button></div>
+   <div class="vb">${host?`<button id="vpz" onclick="vCmd(V&&V.rc&&V.rc.state==='play'?'pause':'resume')">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vCmd('speed',${q[0]})">${q[1]}</button>`).join("")}<button onclick="vCmd('replay')" title="Replay for everybody">↻</button><button onclick="vCmd('skip')" title="Skip to the finish for everybody">⏭</button>`:`<span class="hostnote">The host controls the race</span>`}
+     <button class="wide ${UI.rk?"on":""}" id="rkbtn" onclick="vToggle('rk')">🏁 Ranks</button><button class="wide ${UI.tr?"on":""}" id="trbtn" onclick="vToggle('tr')">📋 My training</button></div>
    <div id="hud"><div id="skd">0.00 f</div><div class="hbar"><div id="skb"></div></div><div class="hbar w2"><div id="skb2"></div></div></div><div id="fban"></div>
    <div id="pans"><div id="rkp" class="pan ${UI.rk?"on":""}"></div><div id="trp" class="pan ${UI.tr?"on":""}"></div></div>
-   <div id="rkb"></div><div id="skc"></div></div>`}
+   <div id="rkb"></div></div>`}
 function setLay(k,v){v=+v;if(!(v>0))return;if(k==="size"){LAY.size=Math.max(50,Math.min(220,v));$("#szr").value=LAY.size;if(document.activeElement!==$("#szn"))$("#szn").value=LAY.size}
   else{LAY.gap=Math.max(6,Math.min(90,v));$("#gpr").value=LAY.gap;if(document.activeElement!==$("#gpn"))$("#gpn").value=LAY.gap}lsSet("frLay",LAY);vLayout()}
 function vLayout(){if(!V)return;const sz=LAY.size/100,w=112*sz,hh=70*sz,top=180+hh*.37,gap=LAY.gap??autoGap(V.n);
   V.hs.forEach((_,i)=>{const L=$("#L"+i),im=L.firstChild;L.style.top=(top+i*gap)+"px";im.style.width=w+"px";im.style.height=hh+"px";im.style.top=(-hh*.37)+"px";
     const N=$("#N"+i),lh=Math.max(10,Math.min(17,gap+1));N.style.top=(top+i*gap+hh*.12)+"px";N.style.lineHeight=lh+"px";N.style.fontSize=(lh-4)+"px";N.style.display=LAY.names?"":"none"});vRender()}
 function vToggle(k){UI[k]=!UI[k];lsSet("frUi",UI);$(k==="rk"?"#rkp":"#trp").classList.toggle("on",UI[k]);$(k==="rk"?"#rkbtn":"#trbtn").classList.toggle("on",UI[k]);if(V){V.rkKey=null;vPanels()}}
-function startView(R,key,replay){cancelAnimationFrame(vraf);const hs=lanes(R),n=hs.length,D=R.distance,sx=132;
+function startView(R,key,rc){cancelAnimationFrame(vraf);const hs=lanes(R),n=hs.length,D=R.distance,sx=132;
   let h=`<div class="fline" style="left:${5000*D}px"></div><div class="sign" style="left:${5000*D+5}px;font-size:11px">END</div><div class="sign" style="left:${sx}px;font-size:11px">START</div>`;
   for(let f=1;f<D;f++)h+=`<div class="pole" style="left:${5000*f}px"></div><div class="sign" style="left:${5000*f}px">${f}f</div>`;
   hs.forEach((hz,i)=>{h+=`<div class="vlane" id="L${i}" style="z-index:${i+1}"><img src="assets/Horse${i%12+1}.gif"></div>`});
   hs.forEach((hz,i)=>{h+=`<div class="nl" id="N${i}" style="background:${hz.color}ee"><b>${i+1}</b><i> ${esc(hz.name)}</i></div>`});
   $("#world").innerHTML=h;$("#world").style.width=(5000*D+$("#view").clientWidth)+"px";
-  const wait=!replay;
-  V={key,hs,n,D,sx,speed:V&&V.key===key?V.speed:1,paused:wait,waiting:wait,pos:Array(n).fill(0),fin:Array(n).fill(null),frame:0,acc:0,last:performance.now(),done:false,lref:null,allFin:null,shown:-1,rk:"",rkKey:null,fnum:0,
+  V={key,hs,n,D,sx,rc:null,rcAt:0,replay:rc?rc.replay:0,pos:Array(n).fill(0),fin:Array(n).fill(null),frame:0,done:false,lref:null,allFin:null,shown:-1,rk:"",rkKey:null,fnum:0,
      finishPos:D*FPS*(BASE-1)-1450,tk:hs.map(z=>z.position*1e-6)};
-  $("#trp").innerHTML=`<div class="trh"><b>Everyone's training</b></div><table><tr><th></th>${[...Array(D)].map((_,f)=>`<th data-f="${f}">${f+1}</th>`).join("")}<th>Σ</th></tr>${hs.map((z,i)=>`<tr><td class="nm"><span class="bd" style="background:${z.color}">${i+1}</span> ${esc(z.name)}</td>${z.plan.map((v,f)=>`<td data-f="${f}">${v||"·"}</td>`).join("")}<td><b>${z.plan.reduce((x,y)=>x+y,0)}</b></td></tr>`).join("")}</table>`;
-  $("#skc").innerHTML=wait?cardHtml(R,hs):"";$("#skc").style.display=wait?"block":"none";
-  vSpeed(V.speed);vLayout();paintTable();vPanels();$("#vpz").textContent=V.paused?"▶":"⏸";vraf=requestAnimationFrame(vLoop)}
+  const mine=hs.find(z=>z.plan);
+  $("#trp").innerHTML=`<div class="trh"><b>My training</b> <span class="mut">(the other trainings stay secret)</span></div>`+(mine?`<table><tr><th></th>${[...Array(D)].map((_,f)=>`<th data-f="${f}">${f+1}</th>`).join("")}<th>Σ</th></tr><tr><td class="nm"><span class="bd" style="background:${mine.color}">${hs.indexOf(mine)+1}</span> ${esc(mine.name)}</td>${mine.plan.map((v,f)=>`<td data-f="${f}">${v||"·"}</td>`).join("")}<td><b>${mine.plan.reduce((x,y)=>x+y,0)}</b></td></tr></table>`:`<div style="padding:8px 10px">You do not have a horse in this race.</div>`);
+  if(rc)applyRc(rc);vLayout();paintTable();vPanels();vraf=requestAnimationFrame(vLoop)}
+function applyRc(rc){if(!V||!rc)return;if(rc.replay!==V.replay&&S&&S.result){startView(S.result,V.key,rc);return}
+  V.rc=rc;V.rcAt=performance.now();const card=$("#skc");
+  const wait=rc.state==="card";card.style.display=wait?"block":"none";  if(wait&&card.dataset.k!==V.key+"|"+(S&&S.host)){card.dataset.k=V.key+"|"+(S&&S.host);card.innerHTML=cardHtml(S.result,V.hs)}
+  const pz=$("#vpz");if(pz)pz.textContent=rc.state==="play"?"⏸":"▶";
+  document.querySelectorAll(".vb button[data-sp]").forEach(b=>b.classList.toggle("on",+b.dataset.sp===rc.speed))}
+function target(){const r=V&&V.rc;if(!r||r.state==="card")return 0;return r.state==="play"?r.frame+(performance.now()-V.rcAt)/1000*r.fps*r.speed:r.frame}
 function cardHtml(R,hs){const D=R.distance,me=S&&S.you;
-  return `<div class="hd"><div><b>Round ${S.round}</b> · Race over ${D}f</div><div>${hs.length} runners · lowest rank points win</div><button class="go2" onclick="vGo()">START RACE</button></div>
-  <table><tr><th>NO.<br>FORM</th><th></th><th>Horse</th><th>Jockey<br>Owner</th></tr>${hs.map((z,i)=>`<tr${!z.ai&&z.owner===me?' class="meR"':""}><td><b>${i+1}</b><br>${esc(z.form||"–")}</td><td><span class="bd" style="background:${z.color}">${i+1}</span></td><td><b>${esc(z.name)}</b> (${avg(z.speeds)})<div class="hwl">${esc(z.style)}${!z.ai&&z.owner===me?" · <b>YOUR HORSE</b>":""}</div></td><td style="font-size:12px">${esc(z.jockey)} (${avg(z.jspeeds)})<div class="hwl">${z.ai?"AI":"Player "+esc(z.owner)}</div></td></tr>`).join("")}</table>`}
-function vGo(){if(!V)return;V.waiting=false;V.paused=false;V.last=performance.now();$("#skc").style.display="none";$("#vpz").textContent="⏸"}
-function vSpeed(s){if(!V)return;V.speed=s;document.querySelectorAll(".vb button[data-sp]").forEach(b=>b.classList.toggle("on",+b.dataset.sp===s))}
-function vPause(){if(!V)return;if(V.waiting){vGo();return}V.paused=!V.paused;$("#vpz").textContent=V.paused?"▶":"⏸"}
-function vReplay(){if(V&&S&&S.result)startView(S.result,V.key,true)}
-function vSkip(){if(!V)return;if(V.waiting)vGo();let g=0;while(!V.done&&g++<20000)vStep();vRender();paintTable()}
+  return `<div class="hd"><div><b>Round ${S.round}</b> · Race over ${D}f</div><div>${hs.length} runners · lowest rank points win</div>${S.host?`<button class="go2" onclick="vCmd('go')">START RACE for everybody</button>`:`<span class="waitnote">Waiting for the host to start the race…</span>`}</div>
+  <p class="mut" style="margin:2px 0 6px">Set your horse size and spacing now (above). Everybody watches the same race together.</p>
+  <table><tr><th>NO.<br>FORM</th><th></th><th>Horse</th><th>Jockey<br>Owner</th></tr>${hs.map((z,i)=>`<tr${!z.ai&&z.owner===me?' class="meR"':""}><td><b>${i+1}</b><br>${esc(z.form||"–")}</td><td><span class="bd" style="background:${z.color}">${i+1}</span></td><td><b>${esc(z.name)}</b> (${z.savg})<div class="hwl">${esc(z.style)}${!z.ai&&z.owner===me?" · <b>YOUR HORSE</b>":""}</div></td><td style="font-size:12px">${esc(z.jockey)} (${z.javg})<div class="hwl">${z.ai?"AI":"Player "+esc(z.owner)}</div></td></tr>`).join("")}</table>`}
+async function vCmd(a,sp){try{const j=await call("/api/race",{code:session.code,token:session.token,action:a,speed:sp});S=j;if(V&&j.rc)applyRc(j.rc)}catch(e){err=e.message}}
 function vStep(){const v=V,D=v.D;v.frame++;const f=Math.floor(v.frame/FPS);
   v.hs.forEach((hz,i)=>{const x=f<D?BASE-hz.ranks[f]:(v.frame<=D*FPS?BASE:BASE-RUNON);v.pos[i]+=x;if(v.fin[i]===null&&v.pos[i]>=v.finishPos)v.fin[i]=v.frame+v.tk[i]});
   if(v.fin.every(x=>x!==null)){if(v.allFin==null)v.allFin=v.frame;if(v.frame>=Math.max(D*FPS+1+10*v.n,v.allFin+10))v.done=true}}
 function vLoop(t){if(!V||!$("#view"))return;
-  if(V.paused){V.last=t}else{const ms=(100+V.n*5)/V.speed;V.acc+=Math.min(t-V.last,250);V.last=t;while(V.acc>=ms&&!V.done){V.acc-=ms;vStep()}}
+  const tg=Math.floor(target());let g=0;while(V.frame<tg&&!V.done&&g++<(tg-V.frame>200?20000:6))vStep();
   vRender();if(Math.min(V.D,Math.floor(V.frame/FPS))!==V.shown||V.done&&V.shown<V.D)paintTable();
-  if(!V.done)vraf=requestAnimationFrame(vLoop)}
+  if(!V.done||(V.rc&&V.rc.state==="play"))vraf=requestAnimationFrame(vLoop);else setTimeout(()=>{if(V)vraf=requestAnimationFrame(vLoop)},400)}
 function vRender(){const v=V,D=v.D,vw=$("#view").clientWidth,sw=Math.max(320,vw-200),sx=v.sx,pp=v.pos.map(p=>p/2),lead=Math.max(...pp);
   if(v.lref==null||v.frame<=D*FPS+1)v.lref=lead;
   const x=pp.map(p=>sx+p-Math.max(0,v.lref-(sw-sx))),rate=(D*5000-sw+50)/(D*FPS),off=rate*Math.max(0,Math.min(v.frame,D*FPS+2));
@@ -191,14 +195,14 @@ function vPanels(){const v=V;if(!UI.rk||!v)return;const D=v.D,fin=v.done,f=fin?D
 function myHorse(){const m=S&&S.result&&S.result.horses.find(z=>!z.ai&&z.owner===S.you);return m?m.name:""}
 function paintTable(){const R=S&&S.result;if(!R||!V||!$("#rtab"))return;const shown=V.done?R.distance:Math.min(V.D,Math.floor(V.frame/FPS));V.shown=shown;const done=V.done;
   const part=(hz,f)=>hz.ranks.slice(0,f).reduce((x,y)=>x+y,0);let hs=R.horses.slice();if(!done)hs.sort((x,y)=>part(x,shown)-part(y,shown));
-  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<h2>🏇 ${V.waiting?"Ready to race":"Racing… furlong "+Math.min(shown+1,R.distance)+" of "+R.distance}</h2>`;
+  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<h2>🏇 ${V.rc&&V.rc.state==="card"?"Ready to race":"Racing… furlong "+Math.min(shown+1,R.distance)+" of "+R.distance}</h2>`;
   const t0=R.horses[0].total,lenOf=z=>Math.max(0,(z.total-t0)/4);
   $("#rsum").innerHTML=done?`<div class="podium">${R.horses.slice(0,3).map((z,k)=>`<div><img src="assets/${["1st","2nd","3rd"][k]}.png"><br><b>${esc(z.name)}</b></div>`).join("")}</div>
    <div class="scroll"><table class="sum"><tr><th>#</th><th>Horse</th><th>Who</th><th>Jockey</th><th>Rank points</th><th>Behind winner</th><th>By (over the next horse)</th></tr>${R.horses.map((z,k)=>{const nx=R.horses[k+1],p=z.total-t0;return `<tr class="${z.owner===S.you&&!z.ai?"me":""}"><td>${k+1}</td><td class="n"><span class="dot" style="background:${z.color}"></span>${esc(z.name)}</td><td>${z.ai?"AI":esc(z.owner)}</td><td class="n">${esc(z.jockey)}</td><td><b>${z.total}</b></td><td>${k===0?"–":lenTxt(lenOf(z))+' <span class="mut">('+p+' point'+(p===1?"":"s")+")</span>"}</td><td>${nx?lenTxt(lenOf(nx)-lenOf(z)):"–"}</td></tr>`}).join("")}</table></div>
    <p class="mut">4 rank points = 1 horse length. Equal points = a nose.</p>`:"";
   $("#rtab").innerHTML=`<table><tr><th>#</th><th>Horse</th><th>Points</th>${[...Array(R.distance)].map((_,i)=>`<th class="${!done&&i===shown?"cur":""}">${i+1}</th>`).join("")}</tr>
       ${hs.map((hz,idx)=>`<tr class="${done&&hz.position<=3?"p"+hz.position:""} ${hz.owner===S.you&&!hz.ai?"me":""}"><td>${done?hz.position:idx+1}</td><td class="n"><span class="dot" style="background:${hz.color}"></span>${esc(hz.name)}${hz.ai?" 🤖":""}<br><small class="mut">${hz.ai?"AI":esc(hz.owner)} · ${esc(hz.jockey)}</small></td><td><b>${part(hz,shown)}</b></td>
-      ${hz.plan.map((v,f)=>f<shown?`<td class="${hz.ranks[f]===0?"r0":""}" title="${hz.how[f]==="s"?"equal training: horse+jockey speed decided":hz.how[f]==="r"?"equal training and equal speed: random":"rank "+hz.ranks[f]}">${v}${hz.how[f]?`<sup class="tb">${hz.how[f]==="s"?"⚡":"🎲"}</sup>`:""}<br><small>${hz.ranks[f]}</small></td>`:`<td class="hid">·</td>`).join("")}</tr>`).join("")}</table>`;
+      ${hz.ranks.map((rk,f)=>f<shown?(hz.plan?`<td class="${rk===0?"r0":""}" title="${hz.how[f]==="s"?"equal training: horse+jockey speed decided":hz.how[f]==="r"?"equal training and equal speed: random":"rank "+rk}">${hz.plan[f]}${hz.how[f]?`<sup class="tb">${hz.how[f]==="s"?"⚡":"🎲"}</sup>`:""}<br><small>${rk}</small></td>`:`<td class="${rk===0?"r0":""}" title="training secret">${rk}${hz.how[f]?`<sup class="tb">${hz.how[f]==="s"?"⚡":"🎲"}</sup>`:""}</td>`):`<td class="hid">·</td>`).join("")}</tr>`).join("")}</table>`;
   $("#rnext").style.display=done?"block":"none"}
 let pendingView=null;
 function draw(){
@@ -236,12 +240,12 @@ function draw(){
   }else{
     const R=S.result,key=S.code+"|"+S.round;
     h+=`<div class="card"><div id="rhead"></div>${viewHtml(R)}<div id="rsum"></div><div class="scroll" id="rtab"></div>
-      <p class="mut">Top number = training points, small number = points for that furlong (0 = won the furlong, green). ⚡ = same training as another horse, so horse + jockey speed decided. 🎲 = same training and same speed, so random. On the track: the winner of each furlong gets 0 points and runs fastest.</p></div>
+      <p class="mut">Your own row: top number = your training, small number = rank points for that furlong (0 = won the furlong, green). Other horses: only the rank points; their trainings stay secret. ⚡ = same training as another horse, so horse + jockey speed decided. 🎲 = same training and same speed, so random. On the track: the winner of each furlong gets 0 points and runs fastest.</p></div>
       <div class="card" id="rnext" style="display:none">${S.host?`<button onclick="act('/api/next')">Next round (new trainings)</button>`:`<span class="mut">The host can start the next round.</span>`}</div>`;
     pendingView=[R,key];
   }
   h+=`<div class="err">${esc(err)}</div>`;a.innerHTML=h;
-  if(pendingView){const p=pendingView;pendingView=null;startView(p[0],p[1])}else{cancelAnimationFrame(vraf);V=null}
+  if(pendingView){const p=pendingView;pendingView=null;startView(p[0],p[1],S.rc)}else{cancelAnimationFrame(vraf);V=null}
   if(S.phase==="lobby")updTot();
 }
 function loop(){if(session&&!document.hidden)tickQuiet();setTimeout(loop,1500)}
@@ -250,7 +254,7 @@ async function tickQuiet(){
   try{const n=await call("/api/state?code="+encodeURIComponent(session.code)+"&token="+encodeURIComponent(session.token));
     const ae=document.activeElement,old=S;
     const typing=ae&&ae.tagName==="INPUT"&&old&&old.phase==="lobby"&&n.phase==="lobby"&&old.round===n.round&&old.distance===n.distance;
-    S=n;err="";
+    S=n;err="";if(V&&n.rc&&n.phase==="done")applyRc(n.rc);
     if(typing)return; /* never redraw while someone types a number */
     if(!old||JSON.stringify(old)!==JSON.stringify(n))draw();
   }catch(e){if(/not found|not in this room/i.test(e.message)){session=null;S=null;save();err=e.message}draw()}
