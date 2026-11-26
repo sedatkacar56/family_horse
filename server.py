@@ -12,6 +12,11 @@ from urllib.parse import parse_qs, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOCK = threading.Lock()
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_pool.json"), encoding="utf8") as _f:
+        AI_POOL = {int(k): v for k, v in json.load(_f).items()}
+except Exception:
+    AI_POOL = {}
 ROOMS = {}
 MAX_ROOMS = 300
 ROOM_TTL = 6 * 3600
@@ -114,7 +119,7 @@ def simulate(D, entries, rnd):
     tie_top = sum(1 for t in totals if t == min(totals)) > 1
     horses = []
     for i, e in enumerate(entries):
-        horses.append(dict(form=e.get("form", ""), name=e["name"], plan=e["plan"], ai=e["ai"], owner=e["owner"], color=e["color"], style=e["style"],
+        horses.append(dict(stable=e.get("stable", ""), real=e.get("real", False), form=e.get("form", ""), name=e["name"], plan=e["plan"], ai=e["ai"], owner=e["owner"], color=e["color"], style=e["style"],
                            jockey=e["jockey"]["name"], speeds=e["speeds"][:D], jspeeds=e["jockey"]["speeds"][:D],
                            ranks=ranks[i], how=how[i], total=totals[i], position=pos[i]))
     horses.sort(key=lambda h: h["position"])
@@ -155,7 +160,9 @@ def room_state(room, token):
             c = dict(h)
             c["savg"] = round(sum(h["speeds"]) / max(1, len(h["speeds"])))
             c["javg"] = round(sum(h["jspeeds"]) / max(1, len(h["jspeeds"])))
-            if h["ai"] or not me or h["owner"] != me["name"]:   # everybody sees only their OWN training and speeds
+            if h["ai"]:                                          # AI trainings are shown to everybody; their speeds stay hidden
+                c["speeds"], c["jspeeds"] = None, None
+            elif not me or h["owner"] != me["name"]:             # players see only their OWN training and speeds
                 c["plan"], c["speeds"], c["jspeeds"] = None, None, None
             hs.append(c)
         st["result"] = dict(R, horses=hs)
@@ -265,11 +272,20 @@ def api(path, d):
                         speeds=p["horse"]["speeds"], jockey=p["horse"]["jockey"],
                         form=" ".join(str(x) for x in reversed(room.get("form", {}).get(p["horse"]["name"].lower(), [])[-8:]))) for p in room["players"]]
         used = {e["name"].lower() for e in entries}
-        pool = [x for x in AI_NAMES if x.lower() not in used]
-        names = rnd.sample(pool, min(room["ai"], len(pool))) + ["AI %d" % (i + 1) for i in range(max(0, room["ai"] - len(pool)))]
-        for k, nm in enumerate(names):
+        D = room["distance"]
+        cand = [r for r in AI_POOL.get(D, []) if r[0].lower() not in used and len(r[2]) == D and sum(r[2]) == 100]
+        rnd.shuffle(cand)
+        for k in range(room["ai"]):
+            if k < len(cand):
+                nm, stable, plan = cand[k][0], cand[k][1], list(cand[k][2])
+                real = True
+            else:
+                free = [x for x in AI_NAMES if x.lower() not in used]
+                nm = rnd.choice(free) if free else "AI %d" % (k + 1)
+                stable, plan, real = "", ai_plan(D, rnd), False
+            used.add(nm.lower())
             h = make_horse(nm, rnd, HORSE_COLORS[(len(room["players"]) + k) % len(HORSE_COLORS)])
-            entries.append(dict(name=nm, plan=ai_plan(room["distance"], rnd), ai=True, owner="AI", color=h["color"], style=h["style"], speeds=h["speeds"], jockey=h["jockey"]))
+            entries.append(dict(name=nm, plan=plan, ai=True, owner="AI", stable=stable, real=real, color=h["color"], style=h["style"], speeds=h["speeds"], jockey=h["jockey"]))
         room["result"] = simulate(room["distance"], entries, rnd)
         fm = room.setdefault("form", {})
         for hz in room["result"]["horses"]:
