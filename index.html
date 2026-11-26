@@ -78,7 +78,7 @@ sup.tb{font-size:10px;color:var(--acc2);font-weight:800}
 table.sum td,table.sum th{padding:4px 8px}
 th.cur{background:#ffe9a8}
 .mut{color:var(--mut);font-size:14px}
-.gp{float:right;margin-left:8px;font:700 11px Arial;background:#000a;color:#ffd54a;padding:0 6px;border-radius:8px}</style>
+.gp{float:right;margin-left:8px;font:700 11px Arial;background:#000a;color:#ffd54a;padding:0 6px;border-radius:8px}.again{background:#e0a31a;color:#222;font-weight:800;border:2px solid #3b2410;border-radius:10px;padding:8px 14px;margin:6px 0;cursor:pointer}</style>
 </head>
 <body>
 <main>
@@ -134,7 +134,7 @@ function viewHtml(R){let y=0;const ls=LAYERS.map((hh,k)=>{const s=`<div class="l
    <label><input type="checkbox" ${LAY.names?"checked":""} onchange="LAY.names=this.checked;lsSet('frLay',LAY);vLayout()"> names</label> <span class="mut">(only for your screen)</span></div>
   <div id="skc"></div>
   <div id="view">${ls}<div id="world"></div><div id="vinfo"></div>
-   <div class="vb">${host?`<button id="vpz" onclick="vCmd(V&&V.rc&&V.rc.state==='play'?'pause':'resume')">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vCmd('speed',${q[0]})">${q[1]}</button>`).join("")}<button onclick="vCmd('replay')" title="Replay for everybody">↻</button><button onclick="vCmd('skip')" title="Skip to the finish for everybody">⏭</button>`:`<span class="hostnote">The host controls the race</span>`}
+   <div class="vb">${host?`<button id="vpz" onclick="vCmd(V&&V.rc&&V.rc.state==='play'?'pause':'resume')">⏸</button>${[[.25,"¼x"],[.5,"½x"],[1,"1x"],[2,"2x"],[4,"4x"],[10,"10x"]].map(q=>`<button data-sp="${q[0]}" onclick="vCmd('speed',${q[0]})">${q[1]}</button>`).join("")}<button onclick="vCmd('replay')" title="Replay for everybody">↻</button><button onclick="vCmd('skip')" title="Skip to the finish for everybody">⏭</button><button class="wide" onclick="act('/api/next')" title="Back to the lobby with the same players">🔁 Race again</button>`:`<span class="hostnote">The host controls the race</span>`}
      <button class="wide ${UI.rk?"on":""}" id="rkbtn" onclick="vToggle('rk')">🏁 Ranks</button><button class="wide ${UI.tr?"on":""}" id="trbtn" onclick="vToggle('tr')">📋 Trainings</button></div>
    <div id="hud"><div id="skd">0.00 f</div><div class="hbar"><div id="skb"></div></div><div class="hbar w2"><div id="skb2"></div></div></div><div id="fban"></div>
    <div id="pans"><div id="rkp" class="pan ${UI.rk?"on":""}"></div><div id="trp" class="pan ${UI.tr?"on":""}"></div></div>
@@ -197,7 +197,7 @@ function vPanels(){const v=V;if(!UI.rk||!v)return;const D=v.D,fin=v.done,f=fin?D
 function myHorse(){const m=S&&S.result&&S.result.horses.find(z=>!z.ai&&z.owner===S.you);return m?m.name:""}
 function paintTable(){const R=S&&S.result;if(!R||!V||!$("#rtab"))return;const shown=V.done?R.distance:Math.min(V.D,Math.floor(V.frame/FPS));V.shown=shown;const done=V.done;
   const part=(hz,f)=>hz.ranks.slice(0,f).reduce((x,y)=>x+y,0);let hs=R.horses.slice();if(!done)hs.sort((x,y)=>part(x,shown)-part(y,shown));
-  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>`:`<h2>🏇 ${V.rc&&V.rc.state==="card"?"Ready to race":"Racing… furlong "+Math.min(shown+1,R.distance)+" of "+R.distance}</h2>`;
+  $("#rhead").innerHTML=done?`<h2>🏆 Result</h2><p><b>${esc(R.horses[0].name)}</b> wins${R.tie_for_win?" (tie on points, decided at random)":""}!</p>${S.host?`<button class="again" onclick="act('/api/next')">🔁 Race again with the same players</button>`:`<p class="mut">The host can start another race with the same players.</p>`}`:`<h2>🏇 ${V.rc&&V.rc.state==="card"?"Ready to race":"Racing… furlong "+Math.min(shown+1,R.distance)+" of "+R.distance}</h2>`;
   const t0=R.horses[0].total,lenOf=z=>Math.max(0,(z.total-t0)/4);
   $("#rsum").innerHTML=done?`<div class="podium">${R.horses.slice(0,3).map((z,k)=>`<div><img src="assets/${["1st","2nd","3rd"][k]}.png"><br><b>${esc(z.name)}</b></div>`).join("")}</div>
    <div class="scroll"><table class="sum"><tr><th>#</th><th>Horse</th><th>Who</th><th>Jockey</th><th>Rank points</th><th>Behind winner</th><th>By (over the next horse)</th></tr>${R.horses.map((z,k)=>{const nx=R.horses[k+1],p=z.total-t0;return `<tr class="${z.owner===S.you&&!z.ai?"me":""}"><td>${k+1}</td><td class="n"><span class="dot" style="background:${z.color}"></span>${esc(z.name)}</td><td>${z.ai?"AI"+(z.stable?" · "+esc(z.stable):""):esc(z.owner)}</td><td class="n">${esc(z.jockey)}</td><td><b>${z.total}</b></td><td>${k===0?"–":lenTxt(lenOf(z))+' <span class="mut">('+p+' point'+(p===1?"":"s")+")</span>"}</td><td>${nx?lenTxt(lenOf(nx)-lenOf(z)):"–"}</td></tr>`}).join("")}</table></div>
@@ -217,7 +217,7 @@ function draw(){
       <p class="mut">or join with a room code:</p>
       <div class="row"><input id="cd" placeholder="CODE" maxlength="4" style="width:100px;text-transform:uppercase"><button class="sec" onclick="join()">Join room</button></div>
       <div class="err">${esc(err)}</div></div>`;return}
-  const D=S.distance;let h=`<div class="card"><div class="row" style="justify-content:space-between"><div><span class="mut">Room code</span><div class="code">${esc(S.code)}</div></div><div class="mut">You: <b>${esc(S.you||"")}</b>${S.host?" (host)":""} · Round ${S.round}<br><a href="#" onclick="leave();return false">Leave room</a></div></div>
+  const D=S.distance;let h=`<div class="card"><div class="row" style="justify-content:space-between"><div><span class="mut">Room code</span><div class="code">${esc(S.code)}</div></div><div class="mut">You: <b>${esc(S.you||"")}</b>${S.host?" (host)":""} · Round ${S.round}<br>${S.host&&S.phase==="done"?`<button class="again" onclick="act('/api/next')">🔁 Race again with the same players</button>`:""}<br><a href="#" onclick="leave();return false">Leave room</a></div></div>
     <div>${S.players.map(p=>`<span class="chip ${p.ready?"ok":""}"><span class="dot" style="background:${p.color}"></span>${esc(p.horse)} <small>(${esc(p.name)})</small>${p.host?" ★":""}${S.phase==="lobby"?(p.ready?" ✓ ready":" …"):""}</span>`).join("")}</div></div>`;
   if(S.phase==="lobby"){
     h+=`<div class="card"><h2>Race settings</h2><div class="row">
