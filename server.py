@@ -153,6 +153,9 @@ def room_state(room, token):
               your_plan=me["plan"] if me else None, max_ai=MAX_AI,
               your_horse=dict(name=me["horse"]["name"], color=me["horse"]["color"], style=me["horse"]["style"], speeds=me["horse"]["speeds"][:room["distance"]],
                               jockey=me["horse"]["jockey"]["name"], jspeeds=me["horse"]["jockey"]["speeds"][:room["distance"]]) if me else None)
+    if room["phase"] == "lobby":
+        ensure_ai(room)
+        st["ai_field"] = [dict(name=e["name"], stable=e["stable"], real=e["real"], plan=e["plan"], style=e["style"], jockey=e["jockey"]["name"]) for e in room["ai_field"]]
     lt = room.get("last")
     if lt and room["phase"] == "lobby":
         st["last"] = dict(distance=lt["distance"], horses=[dict(name=h["name"], stable=h["stable"], ai=h["ai"], position=h["position"], total=h["total"],
@@ -181,6 +184,34 @@ def frame_now(rc):
     if rc["state"] == "play":
         return rc["base_frame"] + (time.time() - rc["base_t"]) * (1000.0 / (100 + 5 * rc["n"])) * rc["speed"]
     return rc["base_frame"]
+
+
+def draw_ai(room, rnd=None):
+    """AI opponents are drawn in the lobby so every player can see their trainings BEFORE the race and adjust."""
+    rnd = rnd or random.Random(secrets.randbits(64))
+    D = room["distance"]
+    used = {p["horse"]["name"].lower() for p in room["players"]}
+    cand = [r for r in AI_POOL.get(D, []) if r[0].lower() not in used and len(r[2]) == D and sum(r[2]) == 100]
+    rnd.shuffle(cand)
+    field = []
+    for k in range(room["ai"]):
+        if k < len(cand):
+            nm, stable, plan, real = cand[k][0], cand[k][1], list(cand[k][2]), True
+        else:
+            free = [x for x in AI_NAMES if x.lower() not in used]
+            nm = rnd.choice(free) if free else "AI %d" % (k + 1)
+            stable, plan, real = "", ai_plan(D, rnd), False
+        used.add(nm.lower())
+        h = make_horse(nm, rnd, HORSE_COLORS[k % len(HORSE_COLORS)])
+        field.append(dict(name=nm, plan=plan, ai=True, owner="AI", stable=stable, real=real, color=h["color"], style=h["style"], speeds=h["speeds"], jockey=h["jockey"]))
+    room["ai_field"], room["ai_key"] = field, (D, room["ai"])
+
+
+def ensure_ai(room):
+    names = {p["horse"]["name"].lower() for p in room["players"]}
+    f = room.get("ai_field")
+    if f is None or room.get("ai_key") != (room["distance"], room["ai"]) or any(e["name"].lower() in names for e in f):
+        draw_ai(room)
 
 
 class Err(Exception):
@@ -276,21 +307,9 @@ def api(path, d):
         entries = [dict(name=p["horse"]["name"], plan=p["plan"], ai=False, owner=p["name"], color=p["horse"]["color"], style=p["horse"]["style"],
                         speeds=p["horse"]["speeds"], jockey=p["horse"]["jockey"],
                         form=" ".join(str(x) for x in reversed(room.get("form", {}).get(p["horse"]["name"].lower(), [])[-8:]))) for p in room["players"]]
-        used = {e["name"].lower() for e in entries}
-        D = room["distance"]
-        cand = [r for r in AI_POOL.get(D, []) if r[0].lower() not in used and len(r[2]) == D and sum(r[2]) == 100]
-        rnd.shuffle(cand)
-        for k in range(room["ai"]):
-            if k < len(cand):
-                nm, stable, plan = cand[k][0], cand[k][1], list(cand[k][2])
-                real = True
-            else:
-                free = [x for x in AI_NAMES if x.lower() not in used]
-                nm = rnd.choice(free) if free else "AI %d" % (k + 1)
-                stable, plan, real = "", ai_plan(D, rnd), False
-            used.add(nm.lower())
-            h = make_horse(nm, rnd, HORSE_COLORS[(len(room["players"]) + k) % len(HORSE_COLORS)])
-            entries.append(dict(name=nm, plan=plan, ai=True, owner="AI", stable=stable, real=real, color=h["color"], style=h["style"], speeds=h["speeds"], jockey=h["jockey"]))
+        ensure_ai(room)
+        for k, e in enumerate(room["ai_field"]):
+            entries.append(dict(e, color=HORSE_COLORS[(len(room["players"]) + k) % len(HORSE_COLORS)]))
         room["result"] = simulate(room["distance"], entries, rnd)
         fm = room.setdefault("form", {})
         for hz in room["result"]["horses"]:
@@ -331,7 +350,7 @@ def api(path, d):
         room["last"] = dict(distance=R["distance"], horses=[dict(name=h["name"], stable=h.get("stable", ""), ai=h["ai"], owner=h["owner"], position=h["position"], total=h["total"], plan=h["plan"]) for h in R["horses"]])
         for p in room["players"]:
             p["last_plan"] = p["plan"]
-        room["phase"], room["result"], room["rc"] = "lobby", None, None
+        room["phase"], room["result"], room["rc"], room["ai_field"] = "lobby", None, None, None
         room["round"] += 1
         for p in room["players"]:
             p["plan"] = None
